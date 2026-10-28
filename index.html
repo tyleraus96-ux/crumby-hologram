@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hologram">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Hologram · Jarvis &amp; Crumby</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="caption" hidden></div>
+<div id="hint">Tap anywhere to talk</div>
+<div id="toast" hidden></div>
+<button id="gear" aria-label="Settings">
+  <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.4L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1 2-3.4zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+</button>
+
+<div id="panel" hidden>
+  <div class="panel-inner">
+    <header><h1>Hologram</h1><button id="close" aria-label="Close">✕</button></header>
+
+    <section>
+      <h2>Character</h2>
+      <div class="seg" data-setting="char">
+        <button data-v="orb">Jarvis orb</button><button data-v="crumby">Crumby</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Display</h2>
+      <div class="seg" data-setting="mode">
+        <button data-v="single">Single sheet</button><button data-v="pyramid">Pyramid (4 sides)</button>
+      </div>
+      <div class="row toggles">
+        <label><input type="checkbox" data-setting="mirror"> Mirror ↔</label>
+        <label><input type="checkbox" data-setting="flipV"> Flip ↕</label>
+        <label><input type="checkbox" data-setting="guides"> Guides</label>
+      </div>
+      <label class="slider">Size <input type="range" min="0.5" max="1.4" step="0.01" data-setting="size"></label>
+      <label class="slider" data-only="pyramid">Pyramid gap <input type="range" min="-0.3" max="0.6" step="0.01" data-setting="gap"></label>
+      <label class="slider">Brightness <input type="range" min="0.5" max="1.6" step="0.01" data-setting="gain"></label>
+    </section>
+
+    <section>
+      <h2>Voice &amp; AI</h2>
+      <p class="note" id="modeNote"></p>
+      <label class="field">xAI API key
+        <input type="password" id="key" placeholder="xai-…  (stored only on this device)" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="row">
+        <button id="saveKey">Save key</button><button id="clearKey" class="ghost">Remove key</button><button id="testKey" class="ghost">Test</button>
+      </div>
+      <label class="field">Jarvis voice <select data-setting="jarvisVoice"></select></label>
+      <label class="field">Crumby voice <select data-setting="crumbyVoice"></select></label>
+      <label class="field">Speech recognition
+        <select data-setting="stt"><option value="xai">xAI (grok-voice-transcribe)</option><option value="browser">Browser (Web Speech)</option></select>
+      </label>
+      <div class="row toggles">
+        <label><input type="checkbox" data-setting="captions"> Captions</label>
+        <label><input type="checkbox" data-setting="showcase"> Showcase loop</label>
+      </div>
+      <div class="row"><button id="resetChat" class="ghost">Forget conversation</button></div>
+    </section>
+
+    <section>
+      <h2>Preview states</h2>
+      <div class="row">
+        <button data-state="idle" class="ghost">Idle</button><button data-state="listening" class="ghost">Listening</button>
+        <button data-state="thinking" class="ghost">Thinking</button><button data-state="talking" class="ghost">Talking</button>
+      </div>
+      <div class="row"><button id="fullscreen" class="ghost">Full screen</button></div>
+    </section>
+    <p class="note small">Tap the hologram to talk, tap again to stop. Space bar works on a Mac. Your key never leaves this browser except to call api.x.ai directly (or your local proxy).</p>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
