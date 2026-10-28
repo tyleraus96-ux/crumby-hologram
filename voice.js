@@ -3,24 +3,77 @@
 // hologram reacts to the real voice amplitude.
 import { clamp } from './fx.js';
 
+const SILENT_MP3 = 'data:audio/mpeg;base64,SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYxLjcuMTAzAAAAAAAAAAAAAAD/84TAAAAAAAAAAAAASW5mbwAAAA8AAAANAAAFoAAzMzMzMzMzRERERERERERVVVVVVVVVVWZmZmZmZmZ3d3d3d3d3d4iIiIiIiIiImZmZmZmZmaqqqqqqqqqqu7u7u7u7u7vMzMzMzMzM3d3d3d3d3d3u7u7u7u7u7v////////8AAAAATGF2YzYxLjE5AAAAAAAAAAAAAAAAJAOQAAAAAAAABaBTBYX9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/80TEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TEUwAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TEpgAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy7/80TErAAAA0gAAAAAMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80TErAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80TErAAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=';
+
+// Playback goes through ONE reusable <audio> element that is primed inside the first tap.
+// iOS only lets media play after a user gesture, and <audio> (unlike Web Audio) still plays with
+// the ring/silent switch on. The AudioContext is only used for the mic level and to measure the
+// reply's loudness envelope (decoding makes no sound), which drives the orb's audio-reactive glow.
 export class AudioEngine {
   constructor() {
     this.ctx = null; this.out = null; this.micAn = null; this.stream = null;
     this.freq = new Uint8Array(256); this.time = new Uint8Array(1024);
-    this.current = null; // playing BufferSource
+    this.current = null; this.el = null; this.env = null; this.primed = false; this.blocked = null;
+    this.onBlocked = null; this.onError = null;
   }
+  // must run synchronously inside a user gesture (click / touchend / keydown)
   unlock() {
-    if (!this.ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!this.ctx && AC) {
       this.ctx = new AC();
-      this.out = this.ctx.createAnalyser(); this.out.fftSize = 512; this.out.smoothingTimeConstant = 0.55;
-      this.gain = this.ctx.createGain(); this.gain.connect(this.out); this.out.connect(this.ctx.destination);
-      // a silent blip inside the gesture keeps iOS from blocking later playback
       const b = this.ctx.createBuffer(1, 1, 22050), s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0);
     }
-    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+    if (this.ctx && this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     setSession('playback');
+    if (!this.el) {
+      this.el = new Audio(); this.el.preload = 'auto'; this.el.setAttribute('playsinline', ''); this.el.setAttribute('webkit-playsinline', '');
+    }
+    if (!this.primed && !this.current) {
+      const el = this.el; el.src = SILENT_MP3; el.muted = false; el.volume = 1;
+      const p = el.play();
+      p?.then?.(() => { this.primed = true; this.blocked = null; }).catch((e) => { this.blocked = e; this.onBlocked?.(e); });
+    }
+  }
+  get audioOK() { return this.primed && !this.blocked; }
+  // Plays one MP3 (ArrayBuffer). Resolves when it ends; rejects with a readable error.
+  async play(arrayBuffer, rate = 1) {
+    if (!this.el) this.unlock();
+    this.stop();
+    const el = this.el, url = URL.createObjectURL(new Blob([arrayBuffer], { type: 'audio/mpeg' }));
+    this.env = null; this.envelope(arrayBuffer.slice(0));
+    const job = { el, url };
+    this.current = job;
+    try {
+      await new Promise((resolve, reject) => {
+        job.resolve = resolve;
+        el.onended = () => resolve();
+        el.onerror = () => reject(new Error(`Audio playback error (${el.error?.code || '?'})`));
+        el.src = url; el.defaultPlaybackRate = rate; el.playbackRate = rate;
+        const p = el.play();
+        p?.then?.(() => { this.primed = true; this.blocked = null; }).catch((e) => {
+          if (e.name === 'NotAllowedError') { this.blocked = e; this.onBlocked?.(e); }
+          reject(e.name === 'NotAllowedError' ? new Error('Sound is blocked: tap the screen once, turn off silent mode and turn the volume up.') : e);
+        });
+      });
+    } finally {
+      if (this.current === job) this.current = null;
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+  // loudness 0..1 at the current playback position (100 steps per second)
+  level() {
+    if (!this.current || !this.env) return this.current ? 0.35 : 0;
+    const i = Math.floor(this.el.currentTime * 100);
+    return this.env[Math.min(this.env.length - 1, i)] || 0;
+  }
+  async envelope(ab) {
+    try {
+      if (!this.ctx) return;
+      const buf = await new Promise((res, rej) => { const p = this.ctx.decodeAudioData(ab, res, rej); p?.then?.(res, rej); });
+      const d = buf.getChannelData(0), step = Math.floor(buf.sampleRate / 100), env = new Float32Array(Math.ceil(d.length / step));
+      for (let i = 0; i < env.length; i++) { let s = 0; const o = i * step; for (let j = 0; j < step && o + j < d.length; j++) s += d[o + j] * d[o + j]; env[i] = Math.sqrt(s / step); }
+      this.env = env;
+    } catch {}
   }
   // Level (0..1) and a 64-bin spectrum from either the mic or the speaker analyser.
   read(an, spectrum) {
@@ -42,7 +95,8 @@ export class AudioEngine {
     return rms;
   }
   async openMic() {
-    this.unlock();
+    if (!this.ctx) this.unlock();
+    if (this.ctx.state !== 'running') await this.ctx.resume().catch(() => {});
     setSession('play-and-record');
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     const src = this.ctx.createMediaStreamSource(this.stream);
@@ -57,19 +111,11 @@ export class AudioEngine {
     this.stream = null; this.micAn = null; this.micSrc = null;
     setSession('playback');
   }
-  async play(arrayBuffer, rate = 1) {
-    this.unlock();
-    const buf = await new Promise((res, rej) => {
-      const p = this.ctx.decodeAudioData(arrayBuffer, res, rej);
-      if (p && p.then) p.then(res, rej);
-    });
-    return new Promise((resolve) => {
-      const s = this.ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
-      s.connect(this.gain); s.onended = () => { if (this.current === s) this.current = null; resolve(); };
-      this.current = s; s.start();
-    });
+  stop() {
+    const j = this.current; this.current = null;
+    if (j) { try { j.el.pause(); } catch {} j.resolve?.(); }
+    try { speechSynthesis?.cancel?.(); } catch {}
   }
-  stop() { try { this.current?.stop(); } catch {} this.current = null; speechSynthesis?.cancel?.(); }
 }
 
 function setSession(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch {} }

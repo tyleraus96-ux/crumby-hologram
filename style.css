@@ -31,4 +31,14 @@ button.on { background: #0e6b80; border-color: #22b7d6; color: #fff; }
 .field input, .field select { display: block; width: 100%; margin-top: 4px; font: inherit; color: #e6fbff; background: #0b171c; border: 1px solid #1d3a44; border-radius: 10px; padding: 9px 10px; }
 .note { color: #7fa9b3; font-size: 13px; margin: 6px 0; }
 .note.small { font-size: 12px; color: #567; margin-top: 18px; }
-body.clean #gear, body.clean #hint, body.clean #toast, body.clean #caption { display: none !important; }
+body.clean #start, body.clean #soundnote, body.clean #gear, body.clean #hint, body.clean #toast, body.clean #caption { display: none !important; }
+#start { position: fixed; inset: 0; z-index: 20; background: #000; display: grid; place-items: center; cursor: pointer; }
+#start[hidden] { display: none; }
+.start-in { text-align: center; color: #e9c38f; }
+.start-in img { display: block; margin: 0 auto 8px; width: 220px; height: 220px; }
+#startmsg { font-size: 22px; font-weight: 600; letter-spacing: .02em; }
+.bar { width: 220px; height: 4px; margin: 14px auto; background: #1b1309; border-radius: 2px; overflow: hidden; }
+#startbar { height: 100%; width: 0; background: #e9a54a; transition: width .2s; }
+.start-in p { color: #6b5a44; font-size: 13px; margin: 6px 0 0; }
+#soundnote { position: fixed; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 15; background: #1a1208; border: 1px solid #6b4a1f; color: #ffd9a0; padding: 10px 14px; border-radius: 12px; font-size: 14px; max-width: 88vw; text-align: center; }
+#soundnote[hidden] { display: none; }

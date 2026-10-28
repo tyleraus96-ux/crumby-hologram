@@ -65,7 +65,7 @@ function frame() {
   let lvl = 0, mic = 0;
   const spec = S.spectrum;
   if (st === 'talking') {
-    if (!forced && !showcaseOn() && engine.current) lvl = clamp(engine.read(engine.out, spec) * 3.2);
+    if (!forced && !showcaseOn() && engine.current) { lvl = clamp(engine.level() * 3.2); synthSpectrum(spec, lvl, t); }
     else { lvl = synthLevel(t); synthSpectrum(spec, lvl, t); }
   } else if (st === 'listening') {
     if (!forced && !showcaseOn() && recorder?.rec?.state === 'recording') mic = recorder.tick(spec);
@@ -127,7 +127,7 @@ function showcaseState(t) {
 // ---------- conversation ----------
 let recogLevel = 0;
 async function onTap() {
-  engine.unlock(); stage.unlock(); hint(false); wakeLock();
+  hint(false); wakeLock();
   if (forced) { forced = null; toast('Live mode'); return; }
   if (S.state === 'listening') { recorder?.stop(true); recog?.stop(); return; }
   if (S.state === 'thinking' || S.state === 'talking') { interrupt(); }   // barge in, then listen
@@ -185,10 +185,10 @@ async function liveTurn(id) {
     if (i >= queue.length) break;
     if (id !== turnId) return;
     let ab = null;
-    try { ab = await queue[i].audio; } catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
+    try { ab = await queue[i].audio; } catch (e) { if (e.name === 'AbortError') return; console.warn(e); toast('Voice: ' + friendly(e)); }
     if (id !== turnId) return;
     setState('talking');
-    if (ab) await engine.play(ab, P.rate); else await speakBrowser(queue[i].text, P);
+    if (ab) await say(ab, P); else await speakBrowser(queue[i].text, P);
   }
   const full = await chatP;
   history.push({ role: 'assistant', content: full });
@@ -203,10 +203,29 @@ async function demoTurn(id) {
   if (id !== turnId) return;
   setState('thinking'); await sleep(900);
   if (id !== turnId) return;
-  const line = P.demo[demoIdx[c]++ % P.demo.length];
+  const n = demoIdx[c]++ % P.demo.length, line = P.demo[n];
+  let ab = null;
+  try { ab = await demoAudio(c, n); } catch (e) { console.warn(e); toast('Demo voice: ' + friendly(e)); }
+  if (id !== turnId) return;
   setState('talking');
   if (get('captions')) caption(line);
-  await speakBrowser(line, P);
+  if (ab) await say(ab, P); else await speakBrowser(line, P);
+}
+
+// pre-generated xAI voice clips for demo mode (assets/voice/<char>-<n>.mp3), fetched once
+const demoCache = {};
+function demoAudio(c, n) {
+  const k = `${c}-${n}`;
+  demoCache[k] ??= fetch(`assets/voice/${k}.mp3`).then((r) => { if (!r.ok) throw new Error(`demo clip ${r.status}`); return r.arrayBuffer(); });
+  demoCache[k].catch(() => delete demoCache[k]);
+  return demoCache[k].then((ab) => ab.slice(0));
+}
+function preloadDemo() { for (const c of ['crumby', 'orb']) for (let n = 0; n < PERSONAS[c].demo.length; n++) demoAudio(c, n).catch(() => {}); }
+
+// play one MP3 through the primed <audio> element; show problems on screen
+async function say(ab, P) {
+  try { await engine.play(ab, P.rate); soundNote(false); window.__holo && (window.__holo.spoke = (window.__holo.spoke || 0) + 1); }
+  catch (e) { console.warn(e); toast(friendly(e)); if (/blocked|NotAllowed/i.test(String(e?.message || e))) soundNote(true); }
 }
 
 function speakBrowser(text, P) {
@@ -242,7 +261,11 @@ setInterval(() => { if (synthTalk && !forced) S.state = 'talking'; }, 100);
 
 // ---------- UI ----------
 canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(); });
-document.addEventListener('pointerdown', () => stage.unlock(), { capture: true });   // iOS: let the videos play after any tap
+// iOS only counts touchend / click / keydown as a gesture that may start media: unlock audio + video there
+for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, () => { engine.unlock(); stage.unlock(); }, { capture: true });
+engine.onBlocked = () => soundNote(true);
+function soundNote(show) { $('#soundnote').hidden = !show; }
+$('#soundnote').addEventListener('click', (e) => { e.stopPropagation(); engine.unlock(); soundNote(false); });
 addEventListener('keydown', (e) => {
   if (e.target.closest?.('input,select,textarea')) return;
   if (e.code === 'Space') { e.preventDefault(); onTap(); }
@@ -303,7 +326,6 @@ let toastTimer;
 function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3800); }
 function caption(s) { const el = $('#caption'); el.textContent = s; el.hidden = !s || !get('captions'); }
 function hint(show) { $('#hint').classList.toggle('gone', !show); }
-setTimeout(() => hint(false), 5000);
 
 function fullscreen() {
   const d = document.documentElement;
@@ -325,7 +347,19 @@ syncUI();
   syncUI(); loadVoices();
 })();
 applyFlip();
+// "Tap to start": guarantees the gesture iOS needs for sound, while the clips load
+const startEl = $('#start'), skipStart = qs.get('clean') === '1' || tOverride !== null || qs.get('autostart') === '1';
+const crumbyVid = stage.chars.crumby;
+crumbyVid.onProgress = (p) => { $('#startbar').style.width = `${Math.round(p * 100)}%`; $('#startmsg').textContent = p < 1 ? `Loading Crumby… ${Math.round(p * 100)}%` : 'Tap to start Crumby'; };
+crumbyVid.onProgress(crumbyVid.progress);
+if (skipStart) startEl.hidden = true;
+else startEl.addEventListener('click', () => {
+  engine.unlock(); stage.unlock();
+  startEl.hidden = true; hint(true);   setTimeout(() => (S.waveReq = true), 300);   // hello!
+  setTimeout(() => { if (!engine.audioOK) soundNote(true); }, 1200);
+});
+preloadDemo();
 await stage.ready;
-if (tOverride === null) setTimeout(() => (S.waveReq = true), 900);   // hello!
-window.__holo = { S, stage, ready: true, settled: () => stage.settled() };
+if (skipStart && tOverride === null) setTimeout(() => (S.waveReq = true), 900);
+window.__holo = { S, stage, engine, ready: true, settled: () => stage.settled() };
 requestAnimationFrame(frame);

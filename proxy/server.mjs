@@ -18,7 +18,7 @@ const UPSTREAM = 'https://api.x.ai/v1/';
 const ALLOWED = /^(stt|tts|tts\/voices|chat\/completions)$/;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.md': 'text/plain; charset=utf-8',
-  '.mp4': 'video/mp4', '.jpg': 'image/jpeg', '.mjs': 'text/javascript; charset=utf-8' };
+  '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.jpg': 'image/jpeg', '.mjs': 'text/javascript; charset=utf-8' };
 
 if (!KEY) console.warn('XAI_API_KEY is not set: the page will run in demo mode (or with a key pasted in its settings).');
 

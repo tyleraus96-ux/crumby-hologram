@@ -11,19 +11,22 @@ pure black.
 |---|---|---|---|---|---|
 | ![](previews/crumby-idle.png) | ![](previews/crumby-listening.png) | ![](previews/crumby-thinking.png) | ![](previews/crumby-talking.png) | ![](previews/crumby-wave.png) | ![](previews/pyramid-crumby.png) |
 
-Crumby is a set of pre-rendered animated loops (`assets/video/`); the Jarvis orb is real-time 3D
+Crumby is a set of pre-rendered animated loops (`assets/video/crumby-sprite.mp4`); the Jarvis orb is real-time 3D
 (three.js r186, vendored in `vendor/`, no CDN).
 
 ## Characters
 - **Crumby (default):** the real Island Crumbs mascot, a puffy round chocolate chip cookie with
   big brown eyes, a wide open smile, dough noodle arms with mitten hands and rounded feet. He is
-  played from seven short video loops rendered on pure black (720×720 H.264, about 2 MB in all):
+  played from seven short video loops rendered on pure black, packed back to back in one
+  720×720 H.264 file (main profile, a keyframe every 0.5 s, about 3.9 MB):
   `idle`, `wave`, `listen` (leans in, hand to ear), `think` (looks up, hand on chin) and three
   talking variants (`talk1-3`). Every clip starts and ends on the same pose with the same camera
   and scale, so the app cuts or crossfades between them seamlessly: he waves when the app opens and
   on each new conversation, listens while you speak, thinks while Grok answers, cycles the talking
   loops while the voice plays, then settles back to idle. The source keyframe and raw clips are in
-  `video-src/`.
+  `video-src/`. The app downloads the file once (progress bar on the start screen) and plays it
+  with just two video elements: one shows the current loop while the other waits, paused on the
+  first frame of the next one, so loop points and switches don't stall.
 - **Jarvis orb 3D:** a glowing core in a plasma shell, tilted gyroscope rings with dashed HUD
   arcs, a voice waveform ring and a particle cloud.
 
@@ -49,7 +52,8 @@ Crumby is a set of pre-rendered animated loops (`assets/video/`); the Jarvis orb
 Tap anywhere (or press **Space** on a Mac) to talk; it stops by itself when you pause, or tap
 again. Tapping while it speaks interrupts it.
 
-- **Demo mode (no key):** listens, then answers with scripted lines in the device's own voice.
+- **Demo mode (no key):** listens, then answers with scripted lines in the real xAI voices
+  (Crumby: Ursa, higher pitch; Jarvis: Helios), pre-generated as small MP3s in `assets/voice/`.
 - **Live mode:** open settings and paste your xAI API key. It's stored **only in that browser's
   localStorage** and is sent only to `api.x.ai`. Then:
   speech → `grok-voice-transcribe-2.0` (`/v1/stt`) → `grok-4.20-0309-non-reasoning` (streamed
@@ -60,11 +64,13 @@ again. Tapping while it speaks interrupts it.
 
 ## iPhone setup
 1. Open the live link in **Safari**, tap **Share › Add to Home Screen**, and launch it from the
-   home screen icon (full screen, no browser bars).
+   home screen icon (full screen, no browser bars). Tap **Tap to start Crumby**: that tap is what
+   iOS needs before it allows sound.
 2. Brightness to max, turn on **Do Not Disturb** / a Focus, turn off Auto-Lock if the screen
    still dims (the app also asks the screen to stay awake).
-3. Allow the microphone when asked. Flip the **ring/silent switch** to ring: in silent mode iOS
-   can mute web audio.
+3. Allow the microphone when asked. Turn the volume up. Speech plays through an audio element,
+   which normally works even in silent mode, but if you hear nothing, switch silent mode off
+   (a note appears on screen if iOS blocks the sound).
 4. Lay the phone flat, face up, under the acrylic (45° sheet) or pyramid, in a dim room.
 
 ## Mac Mini setup
