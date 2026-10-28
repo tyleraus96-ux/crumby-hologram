@@ -11,36 +11,37 @@ pure black.
 |---|---|---|---|---|---|
 | ![](previews/crumby-idle.png) | ![](previews/crumby-listening.png) | ![](previews/crumby-thinking.png) | ![](previews/crumby-talking.png) | ![](previews/crumby-wave.png) | ![](previews/pyramid-crumby.png) |
 
-Everything is real-time 3D (three.js r186, vendored in `vendor/`, no CDN).
+Crumby is a set of pre-rendered animated loops (`assets/video/`); the Jarvis orb is real-time 3D
+(three.js r186, vendored in `vendor/`, no CDN).
 
 ## Characters
-- **Crumby 3D, full body (default):** the round cookie is his head and torso, built from the
-  official Island Crumbs art: the watch face art (`assets/crumby/face_base.png`, plain forehead)
-  on the domed front with his original eye and mouth layers, baked dough on the side, plain dough
-  with chips on the back, and glossy 3D chips around the rim. His limbs follow the official mascot
-  art (the waving and sitting Crumby in the brand kit): smooth dough-coloured noodle arms and legs,
-  cartoon hands with a thumb and three fingers, and rounded bean feet. He stands on a glowing
-  hologram base, breathes, shifts his weight and looks around; cups a hand to his ear to listen;
-  puts a hand to his chin to think; gestures and bounces while talking (mouth synced to the voice);
-  and waves hello when the app opens and when a conversation starts.
+- **Crumby (default):** the real Island Crumbs mascot, a puffy round chocolate chip cookie with
+  big brown eyes, a wide open smile, dough noodle arms with mitten hands and rounded feet. He is
+  played from seven short video loops rendered on pure black (720×720 H.264, about 2 MB in all):
+  `idle`, `wave`, `listen` (leans in, hand to ear), `think` (looks up, hand on chin) and three
+  talking variants (`talk1-3`). Every clip starts and ends on the same pose with the same camera
+  and scale, so the app cuts or crossfades between them seamlessly: he waves when the app opens and
+  on each new conversation, listens while you speak, thinks while Grok answers, cycles the talking
+  loops while the voice plays, then settles back to idle. The source keyframe and raw clips are in
+  `video-src/`.
 - **Jarvis orb 3D:** a glowing core in a plasma shell, tilted gyroscope rings with dashed HUD
   arcs, a voice waveform ring and a particle cloud.
 
 ## States
 | State | Look |
 |---|---|
-| Idle | slow breathing glow |
-| Listening | Crumby cups his ear and leans in; cyan glow and ripples follow your mic level |
-| Thinking | Crumby looks up, hand on chin, gold orbit arcs; the orb turns gold and spins up |
-| Talking | reacts to the actual audio amplitude of the voice |
+| Idle | Crumby stands and sways; the orb breathes |
+| Listening | Crumby cups his ear and leans in; the orb's cyan ripples follow your mic level |
+| Thinking | Crumby looks up, hand on chin; the orb turns gold and spins up |
+| Talking | Crumby chats and gestures (talking loops, not lip-synced); the orb follows the voice's real amplitude |
 
 ## Display modes (gear icon, bottom right, or press `s`)
 - **Single sheet:** one big image, for a flat sheet of acrylic tilted at 45°. A reflection is
   flipped, so use **Mirror ↔** (and **Flip ↕** if it appears upside down) until it reads right.
 - **Pyramid (4 sides):** four views around the centre, tops pointing outward, for the classic
-  upside-down pyramid placed point-down on the middle of the screen. **4 camera angles** renders
-  the model from the front, both sides and the back (walk around it and he's really 3D);
-  **Front on all sides** shows his face on every side. Use **Size** and **Pyramid gap**
+  upside-down pyramid placed point-down on the middle of the screen. Crumby shows his front on all
+  four sides; for the orb, **4 camera angles** renders front, sides and back, or **Front on all
+  sides**. Use **Size** and **Pyramid gap**
   to match your pyramid. **Guides** draws faint alignment lines.
 - **Brightness** boosts the glow (reflections lose a lot of light).
 
@@ -87,7 +88,7 @@ GitHub Pages link).
 
 ## URL options
 `?char=crumby|orb&mode=single|pyramid&views=angles|front&mirror=1&state=talking&showcase=1&clean=1` for presets
-(`state=` previews a state with a synthetic voice; `showcase=1` loops all states silently).
+(`state=idle|listening|thinking|talking|wave` previews a state; `t=2.2` freezes time for stills; `showcase=1` loops all states silently).
 `node tools/previews.mjs` re-renders the preview images (needs `playwright-core` and Chrome).
 
 ## Limits
@@ -95,6 +96,10 @@ GitHub Pages link).
 - iOS silent mode can mute audio; Low Power Mode may cap the frame rate at 30 fps.
 - No wake word yet: it's tap (or Space) to talk.
 - Jarvis has no access to calendars, email or smart-home devices yet.
+- Crumby's mouth moves with the talking loops, not with the exact words.
+- On iPhone the clips are muted, inline and preloaded; in Low Power Mode iOS may hold them until
+  the first tap. Local servers must support HTTP byte ranges for Safari video (`proxy/server.mjs`
+  does; `python -m http.server` does not).
 - Needs WebGL. If a phone gets hot or drops frames, the app lowers its resolution automatically
   (pixel ratio is capped at 2).
 

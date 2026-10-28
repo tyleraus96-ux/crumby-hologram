@@ -81,7 +81,7 @@ function frame() {
   S.w.talk += ((st === 'talking') - S.w.talk) * k;
 
   if (tOverride === null) stage.adapt(dt);
-  stage.render(get('char'), { mode: get('mode'), views: get('views'), size: get('size'), gap: get('gap'), gain: get('gain') }, dt, t, S);
+  stage.render(get('char'), { mode: get('mode'), views: get('views'), size: get('size'), gap: get('gap'), gain: get('gain') }, dt, t, S, tOverride !== null);
   drawGuides();
   S.state = prevState;
   requestAnimationFrame(frame);
@@ -127,7 +127,7 @@ function showcaseState(t) {
 // ---------- conversation ----------
 let recogLevel = 0;
 async function onTap() {
-  engine.unlock(); hint(false); wakeLock();
+  engine.unlock(); stage.unlock(); hint(false); wakeLock();
   if (forced) { forced = null; toast('Live mode'); return; }
   if (S.state === 'listening') { recorder?.stop(true); recog?.stop(); return; }
   if (S.state === 'thinking' || S.state === 'talking') { interrupt(); }   // barge in, then listen
@@ -242,6 +242,7 @@ setInterval(() => { if (synthTalk && !forced) S.state = 'talking'; }, 100);
 
 // ---------- UI ----------
 canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(); });
+document.addEventListener('pointerdown', () => stage.unlock(), { capture: true });   // iOS: let the videos play after any tap
 addEventListener('keydown', (e) => {
   if (e.target.closest?.('input,select,textarea')) return;
   if (e.code === 'Space') { e.preventDefault(); onTap(); }
@@ -326,5 +327,5 @@ syncUI();
 applyFlip();
 await stage.ready;
 if (tOverride === null) setTimeout(() => (S.waveReq = true), 900);   // hello!
-window.__holo = { S, stage, ready: true };
+window.__holo = { S, stage, ready: true, settled: () => stage.settled() };
 requestAnimationFrame(frame);
