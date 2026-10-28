@@ -2,6 +2,8 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
 body { font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; color: #cfe; user-select: none; -webkit-user-select: none; touch-action: none; }
+#guides { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; pointer-events: none; }
+#nogl { position: fixed; top: 40%; width: 100%; text-align: center; color: #678; }
 #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; cursor: pointer; }
 #hint { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom)); transform: translateX(-50%); color: #4a6a73; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; transition: opacity 1.2s; }
 #hint.gone { opacity: 0; }

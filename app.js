@@ -1,6 +1,5 @@
-import { makeCanvas, resize, clamp, noise } from './fx.js';
-import { Orb } from './orb.js';
-import { Crumby } from './crumby.js';
+import { clamp, noise } from './fx.js';
+import { Stage } from './stage3d.js';
 import { PERSONAS, FALLBACK_VOICES } from './persona.js';
 import { AudioEngine, Recorder, browserRecognize, XAI, Sentencer, cleanForCaption } from './voice.js';
 
@@ -8,9 +7,9 @@ const $ = (s) => document.querySelector(s);
 const qs = new URLSearchParams(location.search);
 
 // ---------- settings (localStorage only; URL params override for this visit) ----------
-const DEFAULTS = { char: 'orb', mode: 'single', mirror: false, flipV: false, guides: false, size: 1, gap: 0, gain: 1,
+const DEFAULTS = { char: 'crumby', mode: 'single', views: 'angles', mirror: false, flipV: false, guides: false, size: 1, gap: 0, gain: 1,
   jarvisVoice: 'helios', crumbyVoice: 'ursa', stt: 'xai', captions: false, showcase: false };
-const LS = 'holo.settings', KEY = 'holo.xaiKey';
+const LS = 'holo.settings.v2', KEY = 'holo.xaiKey';
 const cfg = { ...DEFAULTS, ...safeJSON(localStorage.getItem(LS)) };
 const temp = {};
 for (const k of Object.keys(DEFAULTS)) if (qs.has(k)) {
@@ -18,7 +17,7 @@ for (const k of Object.keys(DEFAULTS)) if (qs.has(k)) {
   temp[k] = typeof d === 'boolean' ? v === '1' || v === 'true' : typeof d === 'number' ? +v : v;
 }
 const get = (k) => (k in temp ? temp[k] : cfg[k]);
-function set(k, v) { delete temp[k]; cfg[k] = v; localStorage.setItem(LS, JSON.stringify(cfg)); syncUI(); }
+function set(k, v) { delete temp[k]; cfg[k] = v; localStorage.setItem(LS, JSON.stringify(cfg)); syncUI(); applyFlip(); }
 function safeJSON(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
 
 let proxy = false;   // true when served by proxy/server.mjs (key lives on the Mac, not in the browser)
@@ -27,16 +26,20 @@ const live = () => proxy || !!apiKey();
 const xai = new XAI(() => ({ key: apiKey(), base: proxy ? 'api' : 'https://api.x.ai/v1' }));
 
 // ---------- stage ----------
-const canvas = $('#stage'), ctx = canvas.getContext('2d', { alpha: false });
-const chars = { orb: new Orb(), crumby: new Crumby() };
-const charCanvas = makeCanvas();
-let W = 0, H = 0, DPR = 1;
+const canvas = $('#stage');
+const guides = $('#guides'), gctx = guides.getContext('2d');
+let stage;
+try { stage = new Stage(canvas); } catch (e) { document.body.insertAdjacentHTML('beforeend', '<p id="nogl">This browser could not start WebGL.</p>'); throw e; }
+let W = 0, H = 0;
 function fit() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = Math.round(innerWidth * DPR); H = Math.round(innerHeight * DPR);
-  canvas.width = W; canvas.height = H;
+  W = innerWidth; H = innerHeight; stage.resize(W, H);
+  const d = Math.min(devicePixelRatio || 1, 2); guides.width = W * d; guides.height = H * d;
 }
 addEventListener('resize', fit); fit();
+function applyFlip() {
+  const t = `scale(${get('mirror') ? -1 : 1}, ${get('flipV') ? -1 : 1})`;
+  canvas.style.transform = t; guides.style.transform = t;
+}
 
 // ---------- live state ----------
 const S = { state: 'idle', lvl: 0, mic: 0, oo: 0, spectrum: new Float32Array(64), w: { listen: 0, think: 0, talk: 0 } };
@@ -77,52 +80,28 @@ function frame() {
   S.w.think += ((st === 'thinking') - S.w.think) * k;
   S.w.talk += ((st === 'talking') - S.w.talk) * k;
 
-  const ch = chars[get('char')] || chars.orb;
-  ch.update(dt, t, S);
-
-  // layout
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  const pyr = get('mode') === 'pyramid';
-  const L = Math.min(W, H), size = get('size');
-  const cell = pyr ? (L / 3) * size : L * 0.92 * size;
-  const N = Math.min(2048, Math.round(cell));
-  resize(charCanvas, N);
-  ch.draw(charCanvas, N, t, S);
-
-  const copies = pyr
-    ? [0, 1, 2, 3].map((i) => {
-      const off = (L / 3) * (1 + get('gap'));
-      const ang = (i * Math.PI) / 2;                       // top, right, bottom, left
-      return { x: W / 2 + Math.sin(ang) * off, y: H / 2 - Math.cos(ang) * off, rot: ang };
-    })
-    : [{ x: W / 2, y: H / 2, rot: 0 }];
-  const gain = get('gain');
-  for (const c of copies) {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.translate(c.x, c.y); ctx.rotate(c.rot);
-    ctx.scale(get('mirror') ? -1 : 1, get('flipV') ? -1 : 1);
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = Math.min(1, gain);
-    ctx.drawImage(charCanvas, -cell / 2, -cell / 2, cell, cell);
-    if (gain > 1) { ctx.globalAlpha = gain - 1; ctx.drawImage(charCanvas, -cell / 2, -cell / 2, cell, cell); }
-  }
-  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-  if (get('guides')) drawGuides(pyr, L);
+  if (tOverride === null) stage.adapt(dt);
+  stage.render(get('char'), { mode: get('mode'), views: get('views'), size: get('size'), gap: get('gap'), gain: get('gain') }, dt, t, S);
+  drawGuides();
   S.state = prevState;
   requestAnimationFrame(frame);
 }
 
-function drawGuides(pyr, L) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.strokeStyle = '#1c2a30'; ctx.lineWidth = Math.max(1, DPR);
+let guidesKey = '';
+function drawGuides() {
+  const pyr = get('mode') === 'pyramid', key = [get('guides'), pyr, W, H].join();
+  if (key === guidesKey) return; guidesKey = key;
+  const d = guides.width / W, w = guides.width, h = guides.height;
+  gctx.clearRect(0, 0, w, h);
+  if (!get('guides')) return;
+  gctx.strokeStyle = '#1c2a30'; gctx.lineWidth = Math.max(1, d);
+  const L = Math.min(w, h), x = w / 2, y = h / 2;
+  gctx.beginPath();
   if (pyr) {
-    const c = L / 3, x = W / 2, y = H / 2;
-    ctx.strokeRect(x - c / 6, y - c / 6, c / 3, c / 3);          // pyramid tip square
-    ctx.beginPath(); ctx.moveTo(x - L / 2, y - L / 2); ctx.lineTo(x + L / 2, y + L / 2); ctx.moveTo(x + L / 2, y - L / 2); ctx.lineTo(x - L / 2, y + L / 2); ctx.stroke();
-    ctx.strokeRect(x - L / 2, y - L / 2, L, L);
-  } else { ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); }
+    const c = L / 3; gctx.rect(x - c / 6, y - c / 6, c / 3, c / 3); gctx.rect(x - L / 2, y - L / 2, L, L);
+    gctx.moveTo(x - L / 2, y - L / 2); gctx.lineTo(x + L / 2, y + L / 2); gctx.moveTo(x + L / 2, y - L / 2); gctx.lineTo(x - L / 2, y + L / 2);
+  } else { gctx.moveTo(0, y); gctx.lineTo(w, y); gctx.moveTo(x, 0); gctx.lineTo(x, h); }
+  gctx.stroke();
 }
 
 function synthLevel(t) {
@@ -174,7 +153,7 @@ async function listen() {
 }
 
 async function liveTurn(id) {
-  const P = PERSONAS[get('char')] || PERSONAS.orb;
+  const P = PERSONAS[get('char')] || PERSONAS.crumby;
   const heard = await listen();
   if (id !== turnId) return;
   if (!heard.blob && !heard.text) { toast("Didn't catch that. Tap and try again."); return; }
@@ -216,7 +195,7 @@ async function liveTurn(id) {
 
 let demoIdx = { orb: 0, crumby: 0 };
 async function demoTurn(id) {
-  const c = get('char'), P = PERSONAS[c] || PERSONAS.orb;
+  const c = get('char'), P = PERSONAS[c] || PERSONAS.crumby;
   if (Recorder.supported()) {
     try { await listen(); } catch (e) { console.warn('mic', e); setState('listening'); await sleep(1400); }
   } else { setState('listening'); await sleep(1400); }
@@ -265,7 +244,7 @@ canvas.addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(); });
 addEventListener('keydown', (e) => {
   if (e.target.closest?.('input,select,textarea')) return;
   if (e.code === 'Space') { e.preventDefault(); onTap(); }
-  else if (e.key === 'c') set('char', get('char') === 'orb' ? 'crumby' : 'orb');
+  else if (e.key === 'c') set('char', get('char') === 'crumby' ? 'orb' : 'crumby');
   else if (e.key === 'p') set('mode', get('mode') === 'pyramid' ? 'single' : 'pyramid');
   else if (e.key === 'm') set('mirror', !get('mirror'));
   else if (e.key === 'f') fullscreen();
@@ -343,6 +322,7 @@ syncUI();
   }
   syncUI(); loadVoices();
 })();
-window.__holo = { S, chars, get ready() { return chars.crumby.ready; } };
-await chars.crumby.ready;
+applyFlip();
+await stage.ready;
+window.__holo = { S, stage, ready: true };
 requestAnimationFrame(frame);

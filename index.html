@@ -16,6 +16,7 @@
 </head>
 <body>
 <canvas id="stage"></canvas>
+<canvas id="guides"></canvas>
 <div id="caption" hidden></div>
 <div id="hint">Tap anywhere to talk</div>
 <div id="toast" hidden></div>
@@ -30,7 +31,7 @@
     <section>
       <h2>Character</h2>
       <div class="seg" data-setting="char">
-        <button data-v="orb">Jarvis orb</button><button data-v="crumby">Crumby</button>
+        <button data-v="crumby">Crumby 3D</button><button data-v="orb">Jarvis orb 3D</button>
       </div>
     </section>
 
@@ -38,6 +39,9 @@
       <h2>Display</h2>
       <div class="seg" data-setting="mode">
         <button data-v="single">Single sheet</button><button data-v="pyramid">Pyramid (4 sides)</button>
+      </div>
+      <div class="seg" data-setting="views" data-only="pyramid" style="margin-top:8px">
+        <button data-v="angles">4 camera angles</button><button data-v="front">Front on all sides</button>
       </div>
       <div class="row toggles">
         <label><input type="checkbox" data-setting="mirror"> Mirror ↔</label>
@@ -81,6 +85,7 @@
     <p class="note small">Tap the hologram to talk, tap again to stop. Space bar works on a Mac. Your key never leaves this browser except to call api.x.ai directly (or your local proxy).</p>
   </div>
 </div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

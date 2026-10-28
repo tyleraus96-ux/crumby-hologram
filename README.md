@@ -7,29 +7,38 @@ pure black.
 
 **Live:** https://tyleraus96-ux.github.io/crumby-hologram/
 
-| Orb idle | Orb listening | Orb talking | Crumby talking | Pyramid |
+| Crumby idle | Listening | Thinking | Talking | Pyramid (4 cameras) |
 |---|---|---|---|---|
-| ![](previews/orb-idle.png) | ![](previews/orb-listening.png) | ![](previews/orb-talking.png) | ![](previews/crumby-talking.png) | ![](previews/pyramid-orb.png) |
+| ![](previews/crumby-idle.png) | ![](previews/crumby-listening.png) | ![](previews/crumby-thinking.png) | ![](previews/crumby-talking.png) | ![](previews/pyramid-crumby.png) |
+
+Everything is real-time 3D (three.js r186, vendored in `vendor/`, no CDN).
 
 ## Characters
-- **Jarvis orb:** plasma core, circular voice waveform, rotating HUD rings and orbiting particles.
-- **Crumby:** the Island Crumbs mascot, built from the original watch-app art (`assets/crumby/`,
-  unchanged). He blinks, his eyes and mouth swap with what he's doing, and his mouth follows his
-  real voice level. A soft golden halo and sparkles float around him.
+- **Crumby 3D (default):** a thick, rounded 3D cookie built from the official Island Crumbs art.
+  The watch face art (`assets/crumby/face_base.png`, plain forehead) is projected onto the domed
+  front, and his original eye and mouth layers sit on top, so his face and proportions match the
+  brand. The rounded side wraps baked dough, the back is plain dough with chips, and glossy 3D
+  chocolate chips sit around the rim, side and back (none on the forehead or face). He bobs,
+  slowly turns, blinks, and his mouth follows the real TTS volume. Key, two rim lights and a soft
+  fill, plus a fresnel hologram edge, a warm halo and sparkles. Nothing else is lit.
+- **Jarvis orb 3D:** a glowing core in a plasma shell, tilted gyroscope rings with dashed HUD
+  arcs, a voice waveform ring and a particle cloud.
 
 ## States
 | State | Look |
 |---|---|
 | Idle | slow breathing glow |
-| Listening | bright cyan ring and ripples that follow your mic level |
-| Thinking | gold swirl (orb) / spinning sprinkle arcs (Crumby) |
+| Listening | Crumby leans in, cyan glow, ring and ripples that follow your mic level |
+| Thinking | Crumby looks up and tilts with spinning arcs; the orb turns gold and spins up |
 | Talking | reacts to the actual audio amplitude of the voice |
 
 ## Display modes (gear icon, bottom right, or press `s`)
 - **Single sheet:** one big image, for a flat sheet of acrylic tilted at 45°. A reflection is
   flipped, so use **Mirror ↔** (and **Flip ↕** if it appears upside down) until it reads right.
-- **Pyramid (4 sides):** four copies around the centre, tops pointing outward, for the classic
-  upside-down pyramid placed point-down on the middle of the screen. Use **Size** and **Pyramid gap**
+- **Pyramid (4 sides):** four views around the centre, tops pointing outward, for the classic
+  upside-down pyramid placed point-down on the middle of the screen. **4 camera angles** renders
+  the model from the front, both sides and the back (walk around it and he's really 3D);
+  **Front on all sides** shows his face on every side. Use **Size** and **Pyramid gap**
   to match your pyramid. **Guides** draws faint alignment lines.
 - **Brightness** boosts the glow (reflections lose a lot of light).
 
@@ -75,7 +84,7 @@ The page detects the proxy and switches to live mode without asking for a key. I
 GitHub Pages link).
 
 ## URL options
-`?char=orb|crumby&mode=single|pyramid&mirror=1&state=talking&showcase=1&clean=1` for presets
+`?char=crumby|orb&mode=single|pyramid&views=angles|front&mirror=1&state=talking&showcase=1&clean=1` for presets
 (`state=` previews a state with a synthetic voice; `showcase=1` loops all states silently).
 `node tools/previews.mjs` re-renders the preview images (needs `playwright-core` and Chrome).
 
@@ -84,5 +93,7 @@ GitHub Pages link).
 - iOS silent mode can mute audio; Low Power Mode may cap the frame rate at 30 fps.
 - No wake word yet: it's tap (or Space) to talk.
 - Jarvis has no access to calendars, email or smart-home devices yet.
+- Needs WebGL. If a phone gets hot or drops frames, the app lowers its resolution automatically
+  (pixel ratio is capped at 2).
 
-Crumby and Island Crumbs art © Island Crumbs. Code: MIT.
+Crumby and Island Crumbs art © Island Crumbs. Code: MIT. three.js © three.js authors (MIT, `vendor/three.LICENSE`).
