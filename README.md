@@ -7,20 +7,22 @@ pure black.
 
 **Live:** https://tyleraus96-ux.github.io/crumby-hologram/
 
-| Crumby idle | Listening | Thinking | Talking | Pyramid (4 cameras) |
-|---|---|---|---|---|
-| ![](previews/crumby-idle.png) | ![](previews/crumby-listening.png) | ![](previews/crumby-thinking.png) | ![](previews/crumby-talking.png) | ![](previews/pyramid-crumby.png) |
+| Idle | Listening | Thinking | Talking | Wave | Pyramid |
+|---|---|---|---|---|---|
+| ![](previews/crumby-idle.png) | ![](previews/crumby-listening.png) | ![](previews/crumby-thinking.png) | ![](previews/crumby-talking.png) | ![](previews/crumby-wave.png) | ![](previews/pyramid-crumby.png) |
 
 Everything is real-time 3D (three.js r186, vendored in `vendor/`, no CDN).
 
 ## Characters
-- **Crumby 3D (default):** a thick, rounded 3D cookie built from the official Island Crumbs art.
-  The watch face art (`assets/crumby/face_base.png`, plain forehead) is projected onto the domed
-  front, and his original eye and mouth layers sit on top, so his face and proportions match the
-  brand. The rounded side wraps baked dough, the back is plain dough with chips, and glossy 3D
-  chocolate chips sit around the rim, side and back (none on the forehead or face). He bobs,
-  slowly turns, blinks, and his mouth follows the real TTS volume. Key, two rim lights and a soft
-  fill, plus a fresnel hologram edge, a warm halo and sparkles. Nothing else is lit.
+- **Crumby 3D, full body (default):** the round cookie is his head and torso, built from the
+  official Island Crumbs art: the watch face art (`assets/crumby/face_base.png`, plain forehead)
+  on the domed front with his original eye and mouth layers, baked dough on the side, plain dough
+  with chips on the back, and glossy 3D chips around the rim. His limbs follow the official mascot
+  art (the waving and sitting Crumby in the brand kit): smooth dough-coloured noodle arms and legs,
+  cartoon hands with a thumb and three fingers, and rounded bean feet. He stands on a glowing
+  hologram base, breathes, shifts his weight and looks around; cups a hand to his ear to listen;
+  puts a hand to his chin to think; gestures and bounces while talking (mouth synced to the voice);
+  and waves hello when the app opens and when a conversation starts.
 - **Jarvis orb 3D:** a glowing core in a plasma shell, tilted gyroscope rings with dashed HUD
   arcs, a voice waveform ring and a particle cloud.
 
@@ -28,8 +30,8 @@ Everything is real-time 3D (three.js r186, vendored in `vendor/`, no CDN).
 | State | Look |
 |---|---|
 | Idle | slow breathing glow |
-| Listening | Crumby leans in, cyan glow, ring and ripples that follow your mic level |
-| Thinking | Crumby looks up and tilts with spinning arcs; the orb turns gold and spins up |
+| Listening | Crumby cups his ear and leans in; cyan glow and ripples follow your mic level |
+| Thinking | Crumby looks up, hand on chin, gold orbit arcs; the orb turns gold and spins up |
 | Talking | reacts to the actual audio amplitude of the voice |
 
 ## Display modes (gear icon, bottom right, or press `s`)

@@ -131,6 +131,7 @@ async function onTap() {
   if (forced) { forced = null; toast('Live mode'); return; }
   if (S.state === 'listening') { recorder?.stop(true); recog?.stop(); return; }
   if (S.state === 'thinking' || S.state === 'talking') { interrupt(); }   // barge in, then listen
+  else S.waveReq = true;                     // a new conversation starts with a wave
   const id = ++turnId;
   try { await (live() ? liveTurn(id) : demoTurn(id)); }
   catch (e) { if (id === turnId && e.name !== 'AbortError') { console.error(e); toast(friendly(e)); } }
@@ -324,5 +325,6 @@ syncUI();
 })();
 applyFlip();
 await stage.ready;
+if (tOverride === null) setTimeout(() => (S.waveReq = true), 900);   // hello!
 window.__holo = { S, stage, ready: true };
 requestAnimationFrame(frame);

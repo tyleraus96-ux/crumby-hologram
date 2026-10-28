@@ -2,6 +2,9 @@
 // Characters: Crumby3D (default) and Orb3D. Supports one view or a 4-camera pyramid layout.
 import * as THREE from 'three';
 import { clamp, noise, TAU } from './fx.js';
+import { CrumbyRig } from './crumbyrig.js';
+
+const BY = 1.62;   // body centre height above the hologram base (feet stand at y = 0)
 
 // ---------- small helpers ----------
 function radialTexture(stops, size = 256) {
@@ -142,13 +145,48 @@ function bumpFrom(img) {
   return new THREE.CanvasTexture(c);
 }
 
+// ---------- hologram base ----------
+function makePlatform() {
+  const g = new THREE.Group();
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.3, 72), new THREE.ShaderMaterial({
+    ...additive, side: THREE.DoubleSide,
+    uniforms: { uColor: { value: new THREE.Color(0x46d8ff) }, uO: { value: 1 }, uTime: { value: 0 } },
+    vertexShader: `varying vec2 vP; void main(){ vP = position.xy/1.3; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `uniform vec3 uColor; uniform float uO; uniform float uTime; varying vec2 vP;
+      void main(){ float r = length(vP); float glow = pow(1.0-r, 1.6)*0.32;
+        float rings = smoothstep(0.035,0.0,abs(fract(r*5.0 - uTime*0.25)-0.5)-0.44)*0.12*(1.0-r);
+        float edge = smoothstep(0.08,0.0,abs(r-0.96))*0.85;
+        gl_FragColor = vec4(uColor*(glow+rings+edge)*uO, 1.0); }`,
+  }));
+  disc.rotation.x = -Math.PI / 2; disc.position.y = 0.005; g.add(disc);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.25, 0.7, 64, 1, true), new THREE.ShaderMaterial({
+    ...additive, side: THREE.DoubleSide,
+    uniforms: { uColor: { value: new THREE.Color(0x46d8ff) }, uO: { value: 1 } },
+    vertexShader: `varying float vY; void main(){ vY = position.y/0.7+0.5; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `uniform vec3 uColor; uniform float uO; varying float vY; void main(){ gl_FragColor = vec4(uColor*pow(1.0-vY,2.4)*0.16*uO, 1.0); }`,
+  }));
+  beam.position.y = 0.35; g.add(beam);
+  g.userData = { disc, beam };
+  return g;
+}
+function updatePlatform(g, t, w, lv, mic) {
+  const { disc, beam } = g.userData, c = disc.material.uniforms.uColor.value;
+  c.set(0x46d8ff).lerp(new THREE.Color(0x66f4ff), w.listen).lerp(new THREE.Color(0xffb84a), w.think * 0.8);
+  beam.material.uniforms.uColor.value.copy(c);
+  const o = 0.75 + 0.1 * Math.sin(t * 1.6) + 0.5 * mic + 0.35 * lv;
+  disc.material.uniforms.uO.value = o; beam.material.uniforms.uO.value = o; disc.material.uniforms.uTime.value = t;
+}
+
 export class Crumby3D {
   constructor(renderer) {
     this.name = 'crumby';
     this.scene = new THREE.Scene();
     this.root = new THREE.Group(); this.scene.add(this.root);
-    this.body = new THREE.Group(); this.root.add(this.body);
-    this.fitRadius = 1.42; this.fitRadiusPyramid = 1.6;
+    this.body = new THREE.Group(); this.root.add(this.body); this.body.position.y = BY;
+    this.fx = new THREE.Group(); this.root.add(this.fx); this.fx.position.y = BY;
+    // frame the whole character, feet to a raised waving hand
+    this.center = new THREE.Vector3(0, 1.45, 0); this.fitRadius = 1.72; this.fitW = 1.55; this.fitH = 1.68; this.fitRadiusPyramid = 1.78; this.elev = 0.08;
+    this.platform = makePlatform(); this.root.add(this.platform);
     const loader = new THREE.TextureLoader(), aniso = renderer.capabilities.getMaxAnisotropy();
     const load = (n) => new Promise((res) => loader.load(`assets/crumby/${n}${n.endsWith('_back') ? '.jpg' : '.png'}`, (t) => {
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, aniso); t.generateMipmaps = true; res(t);
@@ -169,20 +207,22 @@ export class Crumby3D {
     this.glowTex = GLOW_TEX();
     const haloTex = radialTexture([[0, 'rgba(255,255,255,0.9)'], [0.5, 'rgba(255,255,255,0.75)'], [0.6, 'rgba(255,255,255,0.42)'], [0.72, 'rgba(255,255,255,0.16)'], [0.86, 'rgba(255,255,255,0.04)'], [1, 'rgba(255,255,255,0)']]);
     this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xffb35a, ...additive, opacity: 0.55 }));
-    this.halo.scale.setScalar(3.1); this.halo.position.z = 0; this.root.add(this.halo);
-    this.ring = new THREE.Mesh(new THREE.TorusGeometry(1.16, 0.018, 8, 160), new THREE.MeshBasicMaterial({ color: 0x46ecff, ...additive, opacity: 0 }));
-    this.root.add(this.ring);
+    this.halo.scale.setScalar(3.1); this.halo.position.z = 0; this.fx.add(this.halo);
+    this.ring = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.011, 8, 160), new THREE.MeshBasicMaterial({ color: 0x46ecff, ...additive, opacity: 0 }));
+    this.fx.add(this.ring);
     this.ripples = Array.from({ length: 3 }, () => {
       const m = new THREE.Mesh(new THREE.TorusGeometry(1.16, 0.012, 6, 128), new THREE.MeshBasicMaterial({ color: 0x46ecff, ...additive, opacity: 0 }));
-      this.root.add(m); return m;
+      this.fx.add(m); return m;
     });
-    this.arcs = new THREE.Group(); this.root.add(this.arcs);
+    this.arcsTilt = new THREE.Group(); this.arcsTilt.rotation.x = -1.15; this.arcsTilt.position.y = 0.35; this.fx.add(this.arcsTilt);
+    this.arcs = new THREE.Group(); this.arcsTilt.add(this.arcs);
     for (let k = 0; k < 3; k++) {
-      const m = new THREE.Mesh(new THREE.TorusGeometry(1.26 + k * 0.07, 0.02, 6, 64, 1.2), new THREE.MeshBasicMaterial({ color: k === 1 ? 0x9fd2ff : 0xffe6c0, ...additive, opacity: 0 }));
+      const m = new THREE.Mesh(new THREE.TorusGeometry(1.3 + k * 0.09, 0.018, 6, 64, 1.3), new THREE.MeshBasicMaterial({ color: k === 1 ? 0x9fd2ff : 0xffe6c0, ...additive, opacity: 0 }));
       m.rotation.z = k * TAU / 3; this.arcs.add(m);
     }
     this.sparkTex = SPARK_TEX();
-    this.sparks = sparkles(46, 1.12, 1.6, 0.9, 11, this.sparkTex); this.root.add(this.sparks);
+    this.sparks = sparkles(46, 1.12, 1.6, 0.9, 11, this.sparkTex); this.fx.add(this.sparks);
+    this.look = 0; this.lookTarget = 0; this.lookNext = 5; this.lookEnd = 0;
     this.blinkAt = 3.6; this.blinkUntil = 0; this.mouth = 'mouth_closed'; this.mouthHold = 0;
   }
 
@@ -204,6 +244,9 @@ export class Crumby3D {
       const mesh = new THREE.Mesh(front, m); mesh.renderOrder = order; this.body.add(mesh); return mesh;
     };
     this.addChips();
+    // limbs: smooth dough, like the official mascot's arms and legs
+    this.limbMat = new THREE.MeshPhysicalMaterial({ color: 0xc47228, roughness: 0.55, metalness: 0, sheen: 0.25, sheenColor: new THREE.Color(0xffb870), sheenRoughness: 0.6, clearcoat: 0.06, clearcoatRoughness: 0.6 });
+    this.rig = new CrumbyRig(this.root, this.body, this.limbMat);
     this.eyes = decal(t.eyes_open, 1); this.mouthMesh = decal(t.mouth_closed, 2);
     // fresnel hologram rim, a hair larger than the body
     this.rim = new THREE.Mesh(geo, fresnelMaterial(0xffd9a0, 2.4)); this.rim.scale.setScalar(1.015); this.body.add(this.rim);
@@ -239,7 +282,7 @@ export class Crumby3D {
   }
 
   // keep the glow sprite behind him from whichever camera is drawing
-  beforeView(cam) { this.halo.position.copy(cam.position).normalize().multiplyScalar(-0.7); }
+  beforeView(cam) { this.halo.position.copy(cam.position).sub(this.center).normalize().multiplyScalar(-0.7); }
 
   update(dt, t, S, px) {
     const w = S.w, lv = S.lvl * w.talk, mic = S.mic * w.listen;
@@ -253,15 +296,24 @@ export class Crumby3D {
     if (this.eyes && this.tex[eyes]) this.eyes.material.map = this.tex[eyes];
     if (this.mouthMesh && this.tex[this.mouth]) this.mouthMesh.material.map = this.tex[this.mouth];
 
-    // motion: bob + slow turn; lean in to listen; tilt and look up to think; bounce to talk
+    // motion: breathing, weight shift, occasional look-around; lean in to listen; look up to think; bounce to talk
     const b = this.body;
-    const turn = 0.42 * Math.sin(t * 0.42) * (1 - 0.75 * w.listen) * (1 - 0.4 * w.talk);
-    b.rotation.y = turn + 0.05 * Math.sin(t * 1.3) * w.talk;
-    b.rotation.x = 0.07 * Math.sin(t * 0.55) - 0.16 * w.think + 0.1 * w.listen;
-    b.rotation.z = 0.04 * Math.sin(t * 0.37) + 0.11 * w.think * Math.sin(t * 0.8 + 0.6);
-    b.position.y = 0.045 * Math.sin(t * 1.6) + 0.04 * lv * Math.abs(Math.sin(t * 11));
-    b.position.z = 0.28 * w.listen;
-    b.scale.setScalar(1 + 0.012 * Math.sin(t * 1.6) + 0.035 * lv);
+    if (t > this.lookNext) { this.lookTarget = (Math.random() < 0.5 ? -1 : 1) * (0.25 + 0.2 * Math.random()); this.lookEnd = t + 1.7; this.lookNext = t + 6 + Math.random() * 5; }
+    if (t > this.lookEnd) this.lookTarget = 0;
+    const idleW = 1 - Math.max(w.listen, w.think, w.talk);
+    this.look += (this.lookTarget * idleW - this.look) * (1 - Math.exp(-dt * 3));
+    const shift = Math.sin(t * 0.8);
+    b.rotation.y = this.look + 0.09 * Math.sin(t * 0.42) + 0.07 * Math.sin(t * 1.3) * w.talk - 0.16 * w.listen;
+    b.rotation.x = 0.035 * Math.sin(t * 0.55) - 0.13 * w.think + 0.12 * w.listen;
+    b.rotation.z = 0.035 * shift + 0.1 * w.listen + 0.07 * w.think * Math.sin(t * 0.8 + 0.6);
+    b.position.x = 0.05 * shift;
+    b.position.y = BY + 0.03 * Math.sin(t * 1.6) + 0.06 * lv * Math.abs(Math.sin(t * 9)) - 0.05 * w.listen;
+    b.position.z = 0.14 * w.listen;
+    b.scale.setScalar(1 + 0.01 * Math.sin(t * 1.6) + 0.03 * lv);
+    this.fx.position.copy(b.position);
+    if (S.waveReq) { S.waveReq = false; this.rig?.wave(t); }
+    this.rig?.update(dt, t, S);
+    updatePlatform(this.platform, t, w, lv, mic);
 
     // glow
     const warm = new THREE.Color(0xffb35a), cyan = new THREE.Color(0x46ecff);
@@ -273,12 +325,11 @@ export class Crumby3D {
       this.rim.material.uniforms.uIntensity.value = 0.75 + 0.6 * lv + 0.8 * mic + 0.3 * w.think;
     }
     this.rimC.intensity = 1.2 + 2.2 * w.listen;
-    this.ring.material.opacity = 0.85 * w.listen; this.ring.scale.setScalar(1 + 0.04 * mic);
-    this.ring.position.z = b.position.z;
+    this.ring.material.opacity = 0.45 * w.listen; this.ring.scale.setScalar(1 + 0.04 * mic);
     this.ripples.forEach((m, i) => {
       const f = (t * 0.9 + i / 3) % 1;
-      m.scale.setScalar(1 + f * 0.55); m.position.z = b.position.z;
-      m.material.opacity = (1 - f) * 0.6 * Math.max(w.listen, lv * 0.7);
+      m.scale.setScalar(1 + f * 0.55);
+      m.material.opacity = (1 - f) * 0.38 * Math.max(w.listen, lv * 0.6);
       m.material.color.set(w.listen > lv ? 0x46ecff : 0xffc070);
     });
     this.arcs.rotation.z += dt * (0.6 + 4 * w.think);
@@ -391,12 +442,12 @@ export class Stage {
     r.toneMappingExposure = o.gain;
     r.setViewport(0, 0, this.w, this.h); r.setScissorTest(false); r.clear();
     const tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-    const target = new THREE.Vector3(0, 0, 0);
+    const target = ch.center || new THREE.Vector3(0, 0, 0), elev = ch.elev || 0;
     if (o.mode !== 'pyramid') {
       const aspect = this.w / this.h; cam.aspect = aspect;
-      const d = ch.fitRadius / (tanH * Math.min(1, aspect)) / (0.86 * o.size);
+      const d = (ch.fitW ? Math.max(ch.fitH / tanH, ch.fitW / (tanH * aspect)) : ch.fitRadius / (tanH * Math.min(1, aspect))) / (0.9 * o.size);
       if (ch.lightRig) ch.lightRig.rotation.y = 0;
-      cam.position.set(0, 0, d); cam.up.set(0, 1, 0); cam.lookAt(target); cam.updateProjectionMatrix();
+      cam.position.set(target.x, target.y + elev * d, target.z + d); cam.up.set(0, 1, 0); cam.lookAt(target); cam.updateProjectionMatrix();
       ch.beforeView?.(cam);
       r.render(ch.scene, cam);
       return;
@@ -409,8 +460,8 @@ export class Stage {
       const ang = (i * Math.PI) / 2;
       const cx = this.w / 2 + Math.sin(ang) * off, cy = this.h / 2 - Math.cos(ang) * off;
       const view = o.views === 'front' ? 0 : [Math.PI, Math.PI / 2, 0, -Math.PI / 2][i];
-      cam.position.set(Math.sin(view) * d, 0, Math.cos(view) * d); cam.up.set(0, 1, 0); cam.lookAt(target);
-      cam.rotateZ(-ang);
+      cam.position.set(target.x + Math.sin(view) * d, target.y + elev * d, target.z + Math.cos(view) * d); cam.up.set(0, 1, 0); cam.lookAt(target);
+      cam.rotateZ(ang);
       if (ch.lightRig) ch.lightRig.rotation.y = view;
       ch.beforeView?.(cam);
       r.setViewport(cx - cell / 2, this.h - cy - cell / 2, cell, cell);

@@ -7,6 +7,7 @@ const shots = [
   ['crumby-listening', 'char=crumby&state=listening', 430, 932],
   ['crumby-thinking', 'char=crumby&state=thinking', 430, 932],
   ['crumby-talking', 'char=crumby&state=talking', 430, 932],
+  ['crumby-wave', 'char=crumby&state=wave', 430, 932],
   ['orb-idle', 'char=orb&state=idle', 430, 932],
   ['orb-listening', 'char=orb&state=listening', 430, 932],
   ['orb-talking', 'char=orb&state=talking', 430, 932],
